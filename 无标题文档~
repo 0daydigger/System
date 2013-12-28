@@ -1,0 +1,2 @@
+mknod /dev/xxx0 c 设备主版本号（源码指定，可以用cat /proc/devices查看） 设备次版本号：
+挂载设备到
