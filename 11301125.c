@@ -12,6 +12,7 @@
 #include <linux/seq_file.h>
 #include <linux/cdev.h>
 #include <asm/uaccess.h>	/* copy_*_user */
+#include <linux/random.h> 	/* get_random_bytes */
 #include "memdev.h"
 
 MODULE_AUTHOR("David Xie");
@@ -24,6 +25,14 @@ struct mem_dev *mem_devp; /*设备结构体指针*/
 
 struct cdev cdev; 
 
+/* 随机数生成函数，返回值为0,1,2,3之中的一个 */
+char random()
+{
+	char result = 0;
+	get_random_bytes(&result,1);
+	result = result & 0x7F;
+	return (result % 4);
+}
 /*文件打开函数*/
 int mem_open(struct inode *inode, struct file *filp)
 {
@@ -56,7 +65,8 @@ static ssize_t mem_read(struct file *filp, char __user *buf, size_t size, loff_t
   unsigned int count = size;    /*记录需要读取的字节数*/ 
   int ret = 0;    /*返回值*/  
   struct mem_dev *dev = filp->private_data; /*获得设备结构体指针*/
-
+  unsigned int k = 0; //循环变量
+  char *return_char; //返回给用户的值
   /*判断读位置是否有效*/
   if (p >= MEMDEV_SIZE)    /*要读取的偏移大于设备的内存空间*/  
     return 0;
@@ -65,20 +75,48 @@ static ssize_t mem_read(struct file *filp, char __user *buf, size_t size, loff_t
 
   /* 输出一下次设备号看是否成功打开次设备*/
   printk("READ:The minor number is %d\n",dev->minor_number);
-
-  /*读数据到用户空间:内核空间->用户空间交换数据*/  
-  if (copy_to_user(buf, (void*)(dev->data + p), count))
+  printk("READ: the block asked for is %d\n",size);
+  /* 为返回结果分配内存 */
+  return_char = kmalloc(count,GFP_KERNEL);
+  /* 内存清零 */
+  memset(return_char,0,sizeof(return_char));
+  //一个字符就是一个字节，所以这里可以这么用，开始复制结果字符串
+  printk("The asked bytes is %d\n",count);
+  switch( random() )
   {
+    case 0:
+	for(k = 0; k < count; k++)
+		strlcat(return_char, "booga!booga!", count);
+	break;
+    case 1:
+	for(k = 0; k < count; k++)
+		strlcat(return_char, "googoo!gaagaa!", count);
+	break;
+    case 2:
+	for(k = 0; k < count; k++)
+		strlcat(return_char, "neka!maka!", count);
+	break;
+    case 3:
+	for(k = 0; k < count; k++)
+		strlcat(return_char, "wooga!wooga!", count);
+	break;
+  }
+  /*读数据到用户空间:内核空间->用户空间交换数据*/
+  /* copy_to_user(用户指针,内核指针,字节数量) */
+  printk("The return char is %s and the size is %d\n",return_char,count);
+  if (copy_to_user(buf, (void*)return_char, count) )
+  { 
+    //读取失败
     ret =  - EFAULT;
   }
   else
   {
-    *ppos += count;
-    ret = count;
-    
-    printk(KERN_INFO "read %d bytes(s) from %d\n", count, p);
+     //偏移量不改动 *ppos += count;
+     ret = count;
+     printk(KERN_INFO "read %d bytes(s) from %d\n", count, p);
   }
-
+  //分配之后要记得释放
+  kfree(return_char);
   return ret;
 }
 
@@ -89,27 +127,28 @@ static ssize_t mem_write(struct file *filp, const char __user *buf, size_t size,
   unsigned int count = size;
   int ret = 0;
   struct mem_dev *dev = filp->private_data; /*获得设备结构体指针*/
-  /*成功打开次设备*/
+  /*成功打开次设备号*/
   printk("WRITE:the minor number is %d\n",dev->minor_number);
-
-  /*分析和获取有效的写长度*/
+  /*
+  //分析和获取有效的写长度
   if (p >= MEMDEV_SIZE)
     return 0;
-  if (count > MEMDEV_SIZE - p)    /*要写入的字节大于设备的内存空间*/
+  if (count > MEMDEV_SIZE - p)    //要写入的字节大于设备的内存空间
     count = MEMDEV_SIZE - p;
     
-  /*从用户空间写入数据*/
+  //从用户空间写入数据
   if (copy_from_user(dev->data + p, buf, count))
     ret =  - EFAULT;
   else
   {
-    *ppos += count;      /*增加偏移位置*/  
-    ret = count;      /*返回实际的写入字节数*/ 
+    *ppos += count;      //增加偏移位置
+    ret = count;      //返回实际的写入字节数
     
     printk(KERN_INFO "written %d bytes(s) from %d\n", count, p);
-  }
+  } */
 
-  return ret;
+  //这里返回值还不能是0!！！
+  return count;
 }
 
 /* seek文件定位函数 */
@@ -212,7 +251,7 @@ static void memdev_exit(void)
 {
   cdev_del(&cdev);   /*注销设备*/
   kfree(mem_devp);     /*释放设备结构体内存*/
-  unregister_chrdev_region(MKDEV(mem_major, 0), 2); /*释放设备号*/
+  unregister_chrdev_region(MKDEV(mem_major, 0), MEMDEV_NR_DEVS); /*释放设备号*/
 }
 
 

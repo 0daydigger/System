@@ -4,8 +4,7 @@ int main()
 {
     int i = 0;
     FILE *fp0 = NULL;
-    char Buf[4096];
-    
+    char Buf[50] = {0};    
     /*初始化Buf*/
     strcpy(Buf,"Mem is char dev!");
     printf("BUF: %s\n",Buf);
@@ -26,19 +25,19 @@ int main()
     }
     
     /*写入设备*/
-    fwrite(Buf, sizeof(Buf), 1, fp0);
+    //fwrite(Buf, sizeof(Buf), 1, fp0);
     
     /*重新定位文件位置（思考没有该指令，会有何后果)*/
-    fseek(fp0,0,SEEK_SET);
+    //fseek(fp0,0,SEEK_SET);
     
     /*清除Buf*/
     strcpy(Buf,"Buf is NULL!");
     printf("BUF: %s\n",Buf);
-    
+    memset(Buf,0,sizeof(Buf));
     
     /*读出设备*/
     fread(Buf, sizeof(Buf), 1, fp0);
-    
+    printf("Size of buf is %d\n",sizeof(Buf));
     /*检测结果*/
     printf("BUF: %s\n",Buf);
 }
