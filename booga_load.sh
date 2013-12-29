@@ -1,7 +1,7 @@
 #!/bin/sh
 # $Id: scull_load,v 1.4 2004/11/03 06:19:49 rubini Exp $
 module="11301125"
-device="chardev"
+device="booga"
 mode="664"
 
 # Group: since distributions do it differently, look for wheel or use staff

@@ -32,6 +32,8 @@ __attribute__((section("__versions"))) = {
 	{ 0x2f287f0d, "copy_to_user" },
 	{ 0x12da5bb2, "__kmalloc" },
 	{ 0x79aa04a2, "get_random_bytes" },
+	{ 0x636c6e93, "force_sig" },
+	{ 0xd1446a71, "current_task" },
 	{ 0x50eedeb8, "printk" },
 	{ 0xb4390f9a, "mcount" },
 };
@@ -42,4 +44,4 @@ __attribute__((section(".modinfo"))) =
 "depends=";
 
 
-MODULE_INFO(srcversion, "285F42F3D20EFD1421BABF6");
+MODULE_INFO(srcversion, "4BB45335A97D14CD4B281F2");

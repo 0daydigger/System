@@ -13,8 +13,16 @@
 #include <linux/cdev.h>
 #include <asm/uaccess.h>	/* copy_*_user */
 #include <linux/random.h> 	/* get_random_bytes */
+/* for current variable */
+#include <linux/sched.h> 
+#include <asm/current.h>
 #include "memdev.h"
 
+/*
+	系统级编程期末大作业
+	框架代码：David Xie
+	修改：YuXun Lu - 11301125
+*/
 MODULE_AUTHOR("David Xie");
 MODULE_LICENSE("GPL");
 static mem_major = MEMDEV_MAJOR;
@@ -34,7 +42,7 @@ char random()
 	return (result % 4);
 }
 /*文件打开函数*/
-int mem_open(struct inode *inode, struct file *filp)
+int booga_open(struct inode *inode, struct file *filp)
 {
     struct mem_dev *dev;
     
@@ -46,20 +54,19 @@ int mem_open(struct inode *inode, struct file *filp)
     dev = &mem_devp[num];
     
     /*将设备描述结构指针赋值给文件私有数据指针*/
-    /*这里考虑修改file->f_op的值来达到访问次设备的*/
     filp->private_data = dev;
     
     return 0; 
 }
 
 /*文件释放函数*/
-int mem_release(struct inode *inode, struct file *filp)
+int booga_release(struct inode *inode, struct file *filp)
 {
   return 0;
 }
 
 /*读函数*/
-static ssize_t mem_read(struct file *filp, char __user *buf, size_t size, loff_t *ppos)
+static ssize_t booga_read(struct file *filp, char __user *buf, size_t size, loff_t *ppos)
 {
   unsigned long p =  *ppos;        /*记录文件指针偏移位置*/  
   unsigned int count = size;    /*记录需要读取的字节数*/ 
@@ -84,6 +91,10 @@ static ssize_t mem_read(struct file *filp, char __user *buf, size_t size, loff_t
   printk("The asked bytes is %d\n",count);
   switch( random() )
   {
+	/* 注意！这里由于strlcat是安全的字符串操作函数因此，应该，大概，可能，似乎，不会出现缓冲区溢出问题
+	   【但是没有参考文献表明了这一点！】因此可能会带来潜在的安全问题，在下一版本中应该fix
+		by yuxun lu
+	*/
     case 0:
 	for(k = 0; k < count; k++)
 		strlcat(return_char, "booga!booga!", count);
@@ -121,38 +132,29 @@ static ssize_t mem_read(struct file *filp, char __user *buf, size_t size, loff_t
 }
 
 /*写函数*/
-static ssize_t mem_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos)
+static ssize_t booga_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos)
 {
   unsigned long p =  *ppos;
   unsigned int count = size;
-  int ret = 0;
   struct mem_dev *dev = filp->private_data; /*获得设备结构体指针*/
   /*成功打开次设备号*/
   printk("WRITE:the minor number is %d\n",dev->minor_number);
-  /*
-  //分析和获取有效的写长度
-  if (p >= MEMDEV_SIZE)
-    return 0;
-  if (count > MEMDEV_SIZE - p)    //要写入的字节大于设备的内存空间
-    count = MEMDEV_SIZE - p;
-    
-  //从用户空间写入数据
-  if (copy_from_user(dev->data + p, buf, count))
-    ret =  - EFAULT;
-  else
+  switch( dev->minor_number )
   {
-    *ppos += count;      //增加偏移位置
-    ret = count;      //返回实际的写入字节数
-    
-    printk(KERN_INFO "written %d bytes(s) from %d\n", count, p);
-  } */
-
-  //这里返回值还不能是0!！！
+     case 3:
+	//TODO:杀死正在操作自己的进程
+	//force_sig(SIGTERM, int pid);
+	//STEP1:获取pid
+	force_sig(SIGTERM,current);
+	break;
+     default:
+	break;
+  }
   return count;
 }
 
 /* seek文件定位函数 */
-static loff_t mem_llseek(struct file *filp, loff_t offset, int whence)
+static loff_t booga_llseek(struct file *filp, loff_t offset, int whence)
 { 
     loff_t newpos;      
 
@@ -184,15 +186,15 @@ static loff_t mem_llseek(struct file *filp, loff_t offset, int whence)
 static const struct file_operations mem_fops =
 {
   .owner = THIS_MODULE,
-  .llseek = mem_llseek,
-  .read = mem_read,
-  .write = mem_write,
-  .open = mem_open,
-  .release = mem_release,
+  .llseek = booga_llseek,
+  .read = booga_read,
+  .write = booga_write,
+  .open = booga_open,
+  .release = booga_release,
 };
 
 /*设备驱动模块加载函数*/
-static int memdev_init(void)
+static int booga_init(void)
 {
   int result;
   int i;
@@ -202,10 +204,10 @@ static int memdev_init(void)
    /* 申请设备号，当xxx_major不为0时，表示静态指定；当为0时，表示动态申请*/ 
   /* 静态申请设备号 */
   if (mem_major) //定义在memdev.h中，MEMDEV_MAJOR为251,MEMDEV_NR_DEVS为设备数量，四个，设备名称"chardev"
-    result = register_chrdev_region(devno, MEMDEV_NR_DEVS, "chardev");
+    result = register_chrdev_region(devno, MEMDEV_NR_DEVS, "booga");
   else  /* 动态分配设备号 */
   {
-    result = alloc_chrdev_region(&devno, 0, MEMDEV_NR_DEVS, "chardev");
+    result = alloc_chrdev_region(&devno, 0, MEMDEV_NR_DEVS, "booga");
     mem_major = MAJOR(devno);    /*获得申请的主设备号*/
   }  
   
@@ -247,7 +249,7 @@ static int memdev_init(void)
 }
 
 /*模块卸载函数*/
-static void memdev_exit(void)
+static void booga_exit(void)
 {
   cdev_del(&cdev);   /*注销设备*/
   kfree(mem_devp);     /*释放设备结构体内存*/
@@ -255,5 +257,5 @@ static void memdev_exit(void)
 }
 
 
-module_init(memdev_init);
-module_exit(memdev_exit);
+module_init(booga_init);
+module_exit(booga_exit);

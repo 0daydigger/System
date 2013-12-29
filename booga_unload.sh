@@ -1,6 +1,6 @@
 #!/bin/sh
 module="11301125"
-device="chardev"
+device="booga"
 
 # invoke rmmod with all arguments we got
 /sbin/rmmod $module $* || exit 1
