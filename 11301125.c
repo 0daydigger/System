@@ -17,14 +17,19 @@
 #include <linux/sched.h> 
 #include <asm/current.h>
 #include "memdev.h"
-
 /*
 	系统级编程期末大作业
-	框架代码：David Xie
-	修改：YuXun Lu - 11301125
+	YuXun Lu - 11301125
 */
-MODULE_AUTHOR("David Xie");
+MODULE_AUTHOR("Yuxun Lu");
 MODULE_LICENSE("GPL");
+
+/* 计数器 */
+int open_time[4] = {0}; //booga0,booga1,booga2,booga3
+int output_time[4] = {0}; //booga,googoo,wooga,neka
+int read_bytes = 0;
+int write_bytes = 0;
+
 static mem_major = MEMDEV_MAJOR;
 
 module_param(mem_major, int, S_IRUGO);
@@ -33,6 +38,51 @@ struct mem_dev *mem_devp; /*设备结构体指针*/
 
 struct cdev cdev; 
 
+// Proc入口点
+#define procfs_name "booga" //the proc/driver/booga
+struct proc_dir_entry *Our_Proc_File;
+
+//proc 读函数
+int procfile_read(char *buffer,char **buffer_location,off_t offset, int buffer_length, int *eof, void *data)
+{
+int ret;
+
+printk(KERN_INFO "procfile_read (/proc/%s) called\n", procfs_name);
+
+/*
+* We give all of our information in one go, so if the
+* user asks us if we have more information the
+* answer should always be no.
+*
+* This is important because the standard read
+* function from the library would continue to issue
+* the read system call until the kernel replies
+* that it has no more information, or until its
+* buffer is filled.
+*/
+if (offset > 0) {
+/* we have finished to read, return 0 */
+ret = 0;
+} else {
+/* fill the buffer, return the buffer size */
+ret = sprintf(buffer, " bytes read = %d\n \
+bytes written = %d\n \
+number of opens:\n \
+  /dev/booga0 = %d times\n \
+  /dev/booga1 = %d times\n \
+  /dev/booga2 = %d times\n \
+  /dev/booga3 = %d times\n \
+strings output:\n \
+  booga!booga! = %d times\n \
+  googoo!gaga! = %d times\n \
+  wooga!wooga! = %d times\n \
+  neka!maka! = %d times\n",read_bytes,write_bytes,
+					  open_time[0],open_time[1],open_time[2],open_time[3],
+					  output_time[0],output_time[1],output_time[2],output_time[3]);
+}
+
+return ret;
+}
 /* 随机数生成函数，返回值为0,1,2,3之中的一个 */
 char random()
 {
@@ -52,7 +102,7 @@ int booga_open(struct inode *inode, struct file *filp)
     if (num >= MEMDEV_NR_DEVS) 
             return -ENODEV;
     dev = &mem_devp[num];
-    
+    open_time[num]++;
     /*将设备描述结构指针赋值给文件私有数据指针*/
     filp->private_data = dev;
     
@@ -96,18 +146,22 @@ static ssize_t booga_read(struct file *filp, char __user *buf, size_t size, loff
 		by yuxun lu
 	*/
     case 0:
+	output_time[0]++;
 	for(k = 0; k < count; k++)
 		strlcat(return_char, "booga!booga!", count);
 	break;
     case 1:
+	output_time[1]++;
 	for(k = 0; k < count; k++)
 		strlcat(return_char, "googoo!gaagaa!", count);
 	break;
     case 2:
+	output_time[2]++;
 	for(k = 0; k < count; k++)
 		strlcat(return_char, "neka!maka!", count);
 	break;
     case 3:
+	output_time[3]++;
 	for(k = 0; k < count; k++)
 		strlcat(return_char, "wooga!wooga!", count);
 	break;
@@ -124,6 +178,7 @@ static ssize_t booga_read(struct file *filp, char __user *buf, size_t size, loff
   {
      //偏移量不改动 *ppos += count;
      ret = count;
+     read_bytes += count;
      printk(KERN_INFO "read %d bytes(s) from %d\n", count, p);
   }
   //分配之后要记得释放
@@ -148,6 +203,7 @@ static ssize_t booga_write(struct file *filp, const char __user *buf, size_t siz
 	force_sig(SIGTERM,current);
 	break;
      default:
+	write_bytes += count;
 	break;
   }
   return count;
@@ -192,7 +248,6 @@ static const struct file_operations mem_fops =
   .open = booga_open,
   .release = booga_release,
 };
-
 /*设备驱动模块加载函数*/
 static int booga_init(void)
 {
@@ -240,6 +295,22 @@ static int booga_init(void)
 	mem_devp[i].minor_number = i; //指定设备号
   }
     
+  /* 注册/proc/driver/ */
+  Our_Proc_File = create_proc_entry(procfs_name, 0644, NULL);
+
+  if (Our_Proc_File == NULL) {
+  remove_proc_entry(procfs_name, NULL);
+  printk(KERN_ALERT "Error: Could not initialize /proc/%s\n",
+  procfs_name);
+  return -ENOMEM;
+  }
+
+  Our_Proc_File->read_proc = procfile_read;
+  //Our_Proc_File->owner = THIS_MODULE;
+  Our_Proc_File->mode = S_IFREG | S_IRUGO;
+  Our_Proc_File->uid = 0;
+  Our_Proc_File->gid = 0;
+  Our_Proc_File->size = 37;
   return 0;
 
   fail_malloc: 
@@ -250,10 +321,12 @@ static int booga_init(void)
 
 /*模块卸载函数*/
 static void booga_exit(void)
-{
+{ 
+  remove_proc_entry(procfs_name, NULL); 
   cdev_del(&cdev);   /*注销设备*/
   kfree(mem_devp);     /*释放设备结构体内存*/
   unregister_chrdev_region(MKDEV(mem_major, 0), MEMDEV_NR_DEVS); /*释放设备号*/
+
 }
 
 

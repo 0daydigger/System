@@ -20,8 +20,10 @@ __attribute__((section("__versions"))) = {
 	{ 0x84b3ef83, "module_layout" },
 	{ 0x15692c87, "param_ops_int" },
 	{ 0x39d636e4, "cdev_del" },
+	{ 0x2ad04077, "remove_proc_entry" },
 	{ 0x7485e15e, "unregister_chrdev_region" },
 	{ 0x29537c9e, "alloc_chrdev_region" },
+	{ 0xd78b6795, "create_proc_entry" },
 	{ 0x43ff78f1, "kmem_cache_alloc_trace" },
 	{ 0x1cb9af37, "kmalloc_caches" },
 	{ 0xd1515064, "cdev_add" },
@@ -32,6 +34,7 @@ __attribute__((section("__versions"))) = {
 	{ 0x2f287f0d, "copy_to_user" },
 	{ 0x12da5bb2, "__kmalloc" },
 	{ 0x79aa04a2, "get_random_bytes" },
+	{ 0x91715312, "sprintf" },
 	{ 0x636c6e93, "force_sig" },
 	{ 0xd1446a71, "current_task" },
 	{ 0x50eedeb8, "printk" },
@@ -44,4 +47,4 @@ __attribute__((section(".modinfo"))) =
 "depends=";
 
 
-MODULE_INFO(srcversion, "4BB45335A97D14CD4B281F2");
+MODULE_INFO(srcversion, "C65B428FC94D28E33F23093");
